@@ -19,12 +19,23 @@ Ce projet applique les bonnes pratiques Infrastructure-as-Code sur Proxmox VE :
 
 ##  Structure du dépôt
 
-.
+```text
 ├── variables.tf # Déclaration des variables
 ├── terraform.tfvars.sample # Exemple de configuration (sans données sensibles)
 ├── 01-Pve-initialization.tf # Initialisation des nœuds Proxmox VE
 ├── 02-Master-initialization.tf # Initialisation spécifique du nœud maître
+├── conf/                        # Configuration des services
+│   ├── jail.local               # Configuration Fail2ban
+│   ├── proxmox.conf             # Configuration Proxmox spécifique Fail2ban
+│   ├── sshd_config              # Paramètres SSH
+├── sh/                          # Scripts d’automatisation
+│   ├── 01-Repo-fix.sh           # Correction des dépôts Proxmox
+│   ├── 02_create_pam_user.sh    # Création d’utilisateurs PAM
+│   ├── 03_secure_access.sh      # Sécurisation de l’accès SSH
+│   ├── 04_create_pve_user.sh    # Création d’utilisateurs Proxmox + tokens
+│   └── 05_create_env.sh         # Création de templates et pools
 └── README.md # Ce document
+```
 
 
 ---
