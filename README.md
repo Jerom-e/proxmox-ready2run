@@ -41,12 +41,12 @@ Ce projet applique les bonnes pratiques Infrastructure-as-Code sur Proxmox VE :
 Edite terraform.tfvars avec tes IPs, utilisateur SSH, chemin de la clé privée, etc.
 
 Initialiser Terraform
-
-terraform init
-
 Vérifier ta configuration
 
-terraform plan
+
+```terraform init
+terraform plan ```
+
 
 Appliquer
 
