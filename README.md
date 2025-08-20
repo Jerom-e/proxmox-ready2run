@@ -65,22 +65,17 @@ Vérifier ta configuration
    ```bash
    terraform apply
    ```
-   
-Points forts (pour RH & équipes techniques)
-Atout	Description
+```text
+Points forts 
+Atout	                  Description
 Documenté & structuré	Variables bien nommées, exemple .tfvars, instructions claires
-Sécurisé	Ports personnalisés, utilisateurs non root, hardening Fail2ban
-Automatisé	Onboarding de nœuds Proxmox sans scripts manuels
-Extensible	Ajout de nouveaux templates ou pools facilement
+Sécurisé	               Ports personnalisés, utilisateurs non root, hardening Fail2ban
+Automatisé	            Onboarding de nœuds Proxmox sans scripts manuels
+Extensible	            Ajout de nouveaux templates ou pools facilement
 À savoir
+```
 
-    N’incluez pas de secrets (IPs internes, clés privées…) dans Git : utilisez terraform.tfvars.sample comme modèle.
 
-    Séparation des rôles bien claire :
-
-        01-Pve-initialization.tf = configuration commune à tous les nœuds
-
-        02-Master-initialization.tf = actions spécifiques au maître
 
 Besoin d’aide ?
 
