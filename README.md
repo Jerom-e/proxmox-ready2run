@@ -44,14 +44,17 @@ Initialiser Terraform
 Vérifier ta configuration
 
 
-```terraform init
-terraform plan ```
+   ```bash
+   terraform init
+   terraform plan
+   ```
 
 
-Appliquer
-
-    terraform apply
-
+   Appliquer
+   ```bash
+   terraform apply
+   ```
+   
 Points forts (pour RH & équipes techniques)
 Atout	Description
 Documenté & structuré	Variables bien nommées, exemple .tfvars, instructions claires
