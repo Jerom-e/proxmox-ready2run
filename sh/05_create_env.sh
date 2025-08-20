@@ -48,7 +48,7 @@ create_template 9010 "template-alma-9" "https://repo.almalinux.org/almalinux/9/c
 
 
 # PoOlS
-pvesh create /pools --poolid zone-templates --comment "debian12 & amazon 2023"
+pvesh create /pools --poolid zone-templates --comment "debian 13 & alma 9"
 # pvesh create /pools --poolid zone-kubernetes --comment "Reverse, Proxy & Load Balancing"
 # pvesh create /pools --poolid zone-application --comment "EDR,ELK,Supervision,Gitlab"
 
