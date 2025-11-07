@@ -8,7 +8,7 @@ ip_pves = [
 ]
 
 # Adresse IP du nœud maître Proxmox (ex: premier nœud de la liste)
-pve_master_ip = "172.16.0.101"
+pve_master_ip = "192.168.0.101"
 
 
 # ----------------------------
