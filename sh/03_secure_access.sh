@@ -89,6 +89,7 @@ install_and_configure_fail2ban() {
 
     systemctl daemon-reload
     systemctl enable --now fail2ban
+    systemctl restart fail2ban
     log "✅ Fail2ban actif et configuré"
 }
 
