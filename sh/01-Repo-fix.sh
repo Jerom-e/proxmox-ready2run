@@ -1,8 +1,17 @@
 #!/bin/bash
-
 set -euo pipefail
 
-# Bannière stylée
+########################################
+#  Proxmox No-Subscription Patch + UI  #
+########################################
+
+# Vérification root
+if [[ "$EUID" -ne 0 ]]; then
+    echo "Ce script doit être exécuté en root."
+    exit 1
+fi
+
+# Bannière
 cat <<'EOF'
 
 ██████╗ ██████╗  ██████╗ ██╗  ██╗███╗   ███╗ ██████╗ ██╗  ██╗
@@ -11,63 +20,70 @@ cat <<'EOF'
 ██╔═══╝ ██╔══██╗██║   ██║ ██╔██╗ ██║╚██╔╝██║██║   ██║ ██╔██╗
 ██║     ██║  ██║╚██████╔╝██╔╝ ██╗██║ ╚═╝ ██║╚██████╔╝██╔╝ ██╗
 ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝
-        ⚙️ NO-SUB FIX and Custom⚙️
+              ⚙ NO-SUB FIX & CUSTOM UI ⚙
 
 EOF
 
-# Fonction log
+# Fonction de log
 log() {
-    echo -e "[$(date +'%Y-%m-%d %H:%M:%S')] $*"
+    echo -e "[\033[1;34m$(date +'%Y-%m-%d %H:%M:%S')\033[0m] $*"
 }
 
-# Patch du Web UI Proxmox
+# Patch du thème web Proxmox
 patch_proxmox_web() {
-    log "🔧 Application du thème dark PVE Discord Dark..."
+    log "Installation du thème 'PVE Discord Dark'..."
     bash <(curl -s https://raw.githubusercontent.com/Weilbyte/PVEDiscordDark/master/PVEDiscordDark.sh) install
 
-    log "🔧 Patch JS pour suppression du message 'no subscription'..."
-    sed -i.bak "s/.data.status.toLowerCase() !== 'active') {/.data.status.toLowerCase() !== 'active') { orig_cmd(); } else if ( false ) {/" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
-
-    if ! grep -q "show_subscription_warning: 0" /etc/pve/datacenter.cfg 2>/dev/null; then
-        echo "datacenter: show_subscription_warning: 0" >> /etc/pve/datacenter.cfg
-        log "✅ Bandeau 'no subscription' désactivé via datacenter.cfg"
-    else
-        log "ℹ️  Bandeau 'no subscription' déjà désactivé."
-    fi
-
-    log "🔁 Redémarrage de pveproxy.service..."
+    log "Redémarrage de pveproxy.service..."
     systemctl restart pveproxy.service
-    log "✅ Service pveproxy redémarré."
+
+    log "Interface Web patchée avec succès."
 }
 
-# Mise à jour des dépôts
-log "📦 Mise à jour des dépôts Proxmox et Ceph..."
+########################################
+#   Mise à jour des sources apt
+########################################
 
-CEPH_LIST="/etc/apt/sources.list.d/ceph.list"
-PVE_LIST="/etc/apt/sources.list.d/pve-enterprise.list"
+log "Préparation des dépôts No-Subscription..."
 
-mkdir -p archive
+ARCHIVE_DIR="/root/archive_no_sub"
+mkdir -p "$ARCHIVE_DIR"
 
-for file in "$CEPH_LIST" "$PVE_LIST"; do
-    if [[ -f "$file" ]]; then
-        cp -v "$file" "${file}.bak"
-        mv "${file}.bak" archive/
+declare -a LISTS=(
+    "/etc/apt/sources.list.d/ceph.list"
+    "/etc/apt/sources.list.d/pve-enterprise.list"
+)
+
+for f in "${LISTS[@]}"; do
+    if [[ -f "$f" ]]; then
+        mv -v "$f" "$ARCHIVE_DIR/"
     fi
 done
 
-echo "deb https://download.proxmox.com/debian/ceph-reef bookworm no-subscription" > "$CEPH_LIST"
-echo "deb https://download.proxmox.com/debian/pve bookworm pve-no-subscription" > "$PVE_LIST"
+if ls /tmp/*.sources >/dev/null 2>&1; then
+    mv -v /tmp/*.sources /etc/apt/sources.list.d/
+else
+    log "Aucun fichier .sources trouvé dans /tmp — Rien à copier."
+fi
 
-log "✅ Fichiers de dépôts écrasés avec les URLs no-subscription."
+log "Dépôts No-Subscription appliqués."
 
-# Mise à jour système
-log "🔄 Exécution de apt update..."
+########################################
+#   Mise à jour du système
+########################################
+
+log "Mise à jour des index APT..."
 apt update -y
 
-log "⬆️  Exécution de apt full-upgrade..."
+log "Mise à niveau complète du système..."
 apt full-upgrade -y
 
-log "✅ Système mis à jour avec succès."
+log "Système à jour."
 
-# Application des patches UI
+########################################
+#   Patch UI Web
+########################################
+
 patch_proxmox_web
+
+log "Terminé. Proxmox est maintenant en mode No-Sub + Dark UI."

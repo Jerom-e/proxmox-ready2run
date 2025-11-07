@@ -18,3 +18,4 @@ variable "ssh_private_key" {
   description = "Chemin vers la clé privée SSH pour se connecter aux nœuds Proxmox"
   type        = string
 }
+

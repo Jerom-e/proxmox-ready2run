@@ -1,13 +1,12 @@
 #!/bin/bash
-
 set -euo pipefail
 
 ######################################################################
-# 🔐 SCRIPT DE DURCISSEMENT DES PORTS PROXMOX ET SSH                 #
-# - SSH : passe de 22 → port personnalisé (via sshd_config fourni)   #
-# - Proxmox GUI : passe de 8006 → $NEW_GUI_PORT                      #
-# - Active fail2ban + journalisation dans /home/adminpam/keyvault/  #
-# Auteur : Jérôme Quandalle                                          #
+# 🔐 SCRIPT DE DURCISSEMENT PROXMOX & SSH
+# - SSH : passe au sshd_config fourni (/tmp/sshd_config)
+# - GUI Proxmox : 8006 → $NEW_GUI_PORT
+# - Fail2ban activé + logs stockés dans /home/adminpam/keyvault/
+# Auteur : Jérôme Quandalle
 ######################################################################
 
 ### === CONFIGURATION === ###
@@ -30,6 +29,12 @@ PVE_FILES_TO_PATCH=(
     "/usr/share/perl5/PVE/Service/pveproxy.pm"
 )
 
+### === VÉRIFICATION ROOT === ###
+if [[ $EUID -ne 0 ]]; then
+    echo "Ce script doit être exécuté en root."
+    exit 1
+fi
+
 ### === LOGGING === ###
 log() {
     echo -e "[$(date +'%Y-%m-%d %H:%M:%S')] $*"
@@ -45,71 +50,74 @@ backup_file() {
 
 ### === CONFIGURATION SSH === ###
 secure_ssh_port() {
-    log "🔧 Reconfiguration de SSH via $SSH_CONFIG"
+    log "🔧 Configuration SSH : remplacement du sshd_config"
 
     backup_file "$SSH_CONFIG"
 
-    if [[ -f /tmp/sshd_config ]]; then
-        cp /tmp/sshd_config "$SSH_CONFIG"
-        log "✅ Nouveau sshd_config appliqué"
-    else
-        log "❌ Fichier /tmp/sshd_config introuvable. Abandon."
+    if [[ ! -f /tmp/sshd_config ]]; then
+        log "❌ ERREUR : /tmp/sshd_config est manquant."
         exit 1
     fi
 
-    apt update -y && apt install -y fail2ban
-
-    # Ajout de la config fail2ban
-    [[ -f /tmp/jail.local ]] && cp /tmp/jail.local /etc/fail2ban/
-    [[ -f /tmp/proxmox.conf ]] && cp /tmp/proxmox.conf /etc/fail2ban/
-
+    cp /tmp/sshd_config "$SSH_CONFIG"
     systemctl restart sshd
-    log "✅ SSH redémarré avec succès"
+    log "✅ SSH configuré et redémarré"
 }
 
 ### === MODIFICATION DU PORT GUI PROXMOX === ###
 change_pve_gui_port() {
-    log "🌐 Changement du port Web GUI Proxmox → $NEW_GUI_PORT"
+    log "🌐 Changement du port GUI Proxmox → $NEW_GUI_PORT"
 
     for file in "${PVE_FILES_TO_PATCH[@]}"; do
         backup_file "$file"
         sed -i "s|8006|${NEW_GUI_PORT}|g" "$file"
     done
 
-    systemctl restart pveproxy
-    systemctl restart pvedaemon
-
-    log "✅ Proxmox GUI réactivé sur le port : $NEW_GUI_PORT"
+    systemctl restart pveproxy pvedaemon
+    log "✅ Proxmox GUI maintenant sur : https://<host>:${NEW_GUI_PORT}"
 }
 
-### === ÉCRITURE DU JOURNAL FINAL === ###
+### === FAIL2BAN === ###
+install_and_configure_fail2ban() {
+    log "🛡 Installation & Configuration fail2ban"
+
+    apt-get update -y
+    apt-get install -y fail2ban
+
+    [[ -f /tmp/jail.local ]] && cp /tmp/jail.local /etc/fail2ban/jail.local && chmod 640 /etc/fail2ban/jail.local
+    [[ -f /tmp/fail2ban-filter-proxmox.conf ]] && cp /tmp/fail2ban-filter-proxmox.conf /etc/fail2ban/filter.d/proxmox.conf && chmod 644 /etc/fail2ban/filter.d/proxmox.conf
+
+    systemctl daemon-reload
+    systemctl enable --now fail2ban
+    log "✅ Fail2ban actif et configuré"
+}
+
+### === LOG FINAL === ###
 write_final_log() {
     mkdir -p "$LOG_DIR"
     chown adminpam:adminpam "$LOG_DIR"
     chmod 700 "$LOG_DIR"
 
     cat <<EOF > "$FINAL_LOG"
-┌──────────────────────────────────────────────────────┐
-│         🔐 CONFIGURATION DE SÉCURITÉ APPLIQUÉE         │
-├──────────────────────────────────────────────────────┤
-│   🕒 Date : $(date '+%Y-%m-%d %H:%M:%S')                        
-│                                                      
-│   ✅ Fail2ban installé et activé                      
-│   ✅ Proxmox UI accessible sur le port : ${NEW_GUI_PORT} 
-│                                                      
-│   📂 Ce fichier : $FINAL_LOG                         
-└──────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│        🔐 CONFIGURATION DE SÉCURITÉ APPLIQUÉE           │
+├────────────────────────────────────────────────────────┤
+│   🕒 Date : $(date '+%Y-%m-%d %H:%M:%S')
+│   ✅ Fail2ban activé
+│   ✅ Proxmox GUI → Port : ${NEW_GUI_PORT}
+│
+│   📂 Log stocké dans : $FINAL_LOG
+└────────────────────────────────────────────────────────┘
 
-⚠️ Pense à mettre à jour tes règles de pare-feu si nécessaire !
+⚠️ Pense à mettre à jour les règles firewall si nécessaire.
 EOF
 
     chown adminpam:adminpam "$FINAL_LOG"
     chmod 600 "$FINAL_LOG"
-
-    log "📝 Journal de configuration enregistré dans : $FINAL_LOG"
+    log "📝 Journal créé : $FINAL_LOG"
 }
 
-### === EXÉCUTION === ###
+### === BANNIÈRE === ###
 cat <<'EOF'
 ███████╗███████╗ ██████╗██╗   ██╗██████╗ ███████╗     █████╗  ██████╗ ██████╗███████╗███████╗███████╗
 ██╔════╝██╔════╝██╔════╝██║   ██║██╔══██╗██╔════╝    ██╔══██╗██╔════╝██╔════╝██╔════╝██╔════╝██╔════╝
@@ -118,11 +126,40 @@ cat <<'EOF'
 ███████║███████╗╚██████╗╚██████╔╝██║  ██║███████╗    ██║  ██║╚██████╗╚██████╗███████╗███████║███████║
 ╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝    ╚═╝  ╚═╝ ╚═════╝ ╚═════╝╚══════╝╚══════╝╚══════╝
       🔒 DURCISSEMENT DES PORTS SSH & GUI PROXMOX
+
 EOF
 echo
 
-log "🚀 Début du durcissement système"
+### === EXÉCUTION === ###
+log "🚀 Démarrage"
 secure_ssh_port
+install_and_configure_fail2ban
 change_pve_gui_port
 write_final_log
-log "✅ Script terminé avec succès"
+log "✅ Terminé avec succès"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
