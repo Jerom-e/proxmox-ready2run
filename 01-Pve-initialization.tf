@@ -1,13 +1,13 @@
 resource "null_resource" "conf_cluster" {
-  #count = length(var.ip_pves) 
+  count = length(var.ip_pves) 
   
 
   connection {
       type        = "ssh"
       user        = var.ssh_user
       private_key = file(var.ssh_private_key)
-      host        = var.pve_master_ip
-      #host        = var.ip_pves[count.index]
+      #host        = var.pve_master_ip
+      host        = var.ip_pves[count.index]
    }
   
  
